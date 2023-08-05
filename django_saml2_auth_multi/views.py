@@ -15,6 +15,8 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.template import TemplateDoesNotExist
 
+from django_saml2_auth_multi.config import SAML2_SETTINGS
+
 try:
     from django.utils.http import \
         url_has_allowed_host_and_scheme as is_safe_url
@@ -22,18 +24,18 @@ except ImportError:
     from django.utils.http import is_safe_url
 
 from django.views.decorators.csrf import csrf_exempt
-from django_saml2_auth.errors import (INACTIVE_USER, INVALID_NEXT_URL,
-                                      INVALID_REQUEST_METHOD, INVALID_TOKEN,
-                                      USER_MISMATCH)
-from django_saml2_auth.exceptions import SAMLAuthError
-from django_saml2_auth.saml import (decode_saml_response,
-                                    extract_user_identity, get_assertion_url,
-                                    get_default_next_url, get_saml_client)
-from django_saml2_auth.user import (create_custom_or_default_jwt,
-                                    decode_custom_or_default_jwt,
-                                    get_or_create_user, get_user_id)
-from django_saml2_auth.utils import (exception_handler, get_reverse,
-                                     is_jwt_well_formed, run_hook)
+from django_saml2_auth_multi.errors import (INACTIVE_USER, INVALID_NEXT_URL,
+                                            INVALID_REQUEST_METHOD, INVALID_TOKEN,
+                                            USER_MISMATCH)
+from django_saml2_auth_multi.exceptions import SAMLAuthError
+from django_saml2_auth_multi.saml import (decode_saml_response,
+                                          extract_user_identity, get_assertion_url,
+                                          get_default_next_url, get_saml_client)
+from django_saml2_auth_multi.user import (create_custom_or_default_jwt,
+                                          decode_custom_or_default_jwt,
+                                          get_or_create_user, get_user_id)
+from django_saml2_auth_multi.utils import (exception_handler, get_reverse,
+                                           is_jwt_well_formed, run_hook)
 
 
 @login_required
@@ -47,7 +49,7 @@ def welcome(request: HttpRequest) -> Union[HttpResponse, HttpResponseRedirect]:
         Union[HttpResponse, HttpResponseRedirect]: Django response or redirect object.
     """
     try:
-        return render(request, "django_saml2_auth/welcome.html", {"user": request.user})
+        return render(request, "django_saml2_auth_multi/welcome.html", {"user": request.user})
     except TemplateDoesNotExist:
         default_next_url = get_default_next_url()
         return (HttpResponseRedirect(default_next_url)
@@ -64,7 +66,7 @@ def denied(request: HttpRequest) -> HttpResponse:
     Returns:
         HttpResponse: Render access denied page.
     """
-    return render(request, "django_saml2_auth/denied.html")
+    return render(request, "django_saml2_auth_multi/denied.html")
 
 
 @csrf_exempt
@@ -88,12 +90,13 @@ def acs(request: HttpRequest):
     Notes:
         https://wiki.shibboleth.net/confluence/display/CONCEPT/AssertionConsumerService
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    authn_response, idp = decode_saml_response(request, acs)
 
-    authn_response = decode_saml_response(request, acs)
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
+
     # decode_saml_response() will raise SAMLAuthError if the response is invalid,
     # so we can safely ignore the type check here.
-    user = extract_user_identity(authn_response.get_identity())  # type: ignore
+    user = extract_user_identity(authn_response.get_identity(), idp)  # type: ignore
 
     next_url = request.session.get("login_next_url")
 
@@ -111,7 +114,7 @@ def acs(request: HttpRequest):
         next_url = get_default_next_url()
 
     if relay_state and relay_state_is_token:
-        redirected_user_id = decode_custom_or_default_jwt(relay_state)
+        redirected_user_id = decode_custom_or_default_jwt(relay_state, saml2_auth_settings)
 
         # This prevents users from entering an email on the SP, but use a different email on IdP
         if get_user_id(user) != redirected_user_id:
@@ -122,7 +125,7 @@ def acs(request: HttpRequest):
                 "status_code": 403
             })
 
-    is_new_user, target_user = get_or_create_user(user)
+    is_new_user, target_user = get_or_create_user(user, saml2_auth_settings)
 
     before_login_trigger = dictor(saml2_auth_settings, "TRIGGER.BEFORE_LOGIN")
     if before_login_trigger:
@@ -133,7 +136,7 @@ def acs(request: HttpRequest):
     use_jwt = dictor(saml2_auth_settings, "USE_JWT", False)
     if use_jwt and target_user.is_active:
         # Create a new JWT token for IdP-initiated login (acs)
-        jwt_token = create_custom_or_default_jwt(target_user)
+        jwt_token = create_custom_or_default_jwt(target_user, saml2_auth_settings)
         custom_token_query_trigger = dictor(saml2_auth_settings, "TRIGGER.CUSTOM_TOKEN_QUERY")
         if custom_token_query_trigger:
             query = run_hook(custom_token_query_trigger, jwt_token)
@@ -146,7 +149,7 @@ def acs(request: HttpRequest):
         return HttpResponseRedirect(frontend_url + query)
 
     if target_user.is_active:
-        # Try to load from the `AUTHENTICATION_BACKENDS` setting in settings.py
+        # Try to load from the `AUTHENTICATION_BACKENDS` setting in config.py
         if hasattr(settings, "AUTHENTICATION_BACKENDS") and settings.AUTHENTICATION_BACKENDS:
             model_backend = settings.AUTHENTICATION_BACKENDS[0]
         else:
@@ -181,7 +184,7 @@ def acs(request: HttpRequest):
 
     if is_new_user:
         try:
-            return render(request, "django_saml2_auth/welcome.html", {"user": request.user})
+            return render(request, "django_saml2_auth_multi/welcome.html", {"user": request.user})
         except TemplateDoesNotExist:
             return redirect(next_url)
     else:
@@ -189,7 +192,7 @@ def acs(request: HttpRequest):
 
 
 @exception_handler
-def sp_initiated_login(request: HttpRequest) -> HttpResponseRedirect:
+def sp_initiated_login(request: HttpRequest, idp: str | None = None) -> HttpResponseRedirect:
     """This view is called by the SP to initiate a login to IdP, aka. SP-initiated SAML SSP.
 
     Args:
@@ -202,7 +205,7 @@ def sp_initiated_login(request: HttpRequest) -> HttpResponseRedirect:
     if request.method == "GET":
         token = request.GET.get("token")
         if token:
-            user_id = decode_custom_or_default_jwt(token)
+            user_id = decode_custom_or_default_jwt(token)  # TODO: NoSettings
             if not user_id:
                 raise SAMLAuthError("The token is invalid.", extra={
                     "exc_type": ValueError,
@@ -210,14 +213,14 @@ def sp_initiated_login(request: HttpRequest) -> HttpResponseRedirect:
                     "reason": "The token is invalid.",
                     "status_code": 403
                 })
-            saml_client = get_saml_client(get_assertion_url(request), acs, user_id)
-            jwt_token = create_custom_or_default_jwt(user_id)
+            saml_client = get_saml_client(get_assertion_url(request, idp), acs, idp, user_id)
+            jwt_token = create_custom_or_default_jwt(user_id) # TODO: NoSettings
             _, info = saml_client.prepare_for_authenticate(  # type: ignore
                 sign=False, relay_state=jwt_token)
             redirect_url = dict(info["headers"]).get("Location", "")
             if not redirect_url:
                 return HttpResponseRedirect(
-                    get_reverse([denied, "denied", "django_saml2_auth:denied"]))  # type: ignore
+                    get_reverse([denied, "denied", "django_saml2_auth_multi:denied"]))  # type: ignore
             return HttpResponseRedirect(redirect_url)
     else:
         raise SAMLAuthError("Request method is not supported.", extra={
@@ -227,7 +230,7 @@ def sp_initiated_login(request: HttpRequest) -> HttpResponseRedirect:
             "status_code": 404
         })
     return HttpResponseRedirect(
-        get_reverse([denied, "denied", "django_saml2_auth:denied"]))  # type: ignore
+        get_reverse([denied, "denied", "django_saml2_auth_multi:denied"]))  # type: ignore
 
 
 @exception_handler
@@ -244,9 +247,10 @@ def signin(request: HttpRequest) -> HttpResponseRedirect:
     Returns:
         HttpResponseRedirect: Redirect to the IdP login endpoint
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    idp = request.GET.get("idp")
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
 
-    next_url = request.GET.get("next") or get_default_next_url()
+    next_url = request.GET.get("next") or get_default_next_url(idp)
     if not next_url:
         raise SAMLAuthError("The next URL is invalid.", extra={
             "exc_type": ValueError,
@@ -260,7 +264,7 @@ def signin(request: HttpRequest) -> HttpResponseRedirect:
             parsed_next_url = urlparse.parse_qs(urlparse.urlparse(unquote(next_url)).query)
             next_url = dictor(parsed_next_url, "next.0")
     except Exception:
-        next_url = request.GET.get("next") or get_default_next_url()
+        next_url = request.GET.get("next") or get_default_next_url(idp)
 
     # Only permit signin requests where the next_url is a safe URL
     allowed_hosts = set(dictor(saml2_auth_settings, "ALLOWED_REDIRECT_HOSTS", []))
@@ -268,11 +272,11 @@ def signin(request: HttpRequest) -> HttpResponseRedirect:
 
     if not url_ok:
         return HttpResponseRedirect(
-            get_reverse([denied, "denied", "django_saml2_auth:denied"]))  # type: ignore
+            get_reverse([denied, "denied", "django_saml2_auth_multi:denied"]))  # type: ignore
 
     request.session["login_next_url"] = next_url
 
-    saml_client = get_saml_client(get_assertion_url(request), acs)
+    saml_client = get_saml_client(get_assertion_url(request, idp), acs, idp)
     _, info = saml_client.prepare_for_authenticate(relay_state=next_url)  # type: ignore
 
     redirect_url = dict(info["headers"]).get("Location", "")
@@ -290,4 +294,4 @@ def signout(request: HttpRequest) -> HttpResponse:
         HttpResponse: Render the logout page.
     """
     logout(request)
-    return render(request, "django_saml2_auth/signout.html")
+    return render(request, "django_saml2_auth_multi/signout.html")

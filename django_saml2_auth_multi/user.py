@@ -7,17 +7,18 @@ from typing import Any, Dict, Optional, Tuple, Union
 import jwt
 from cryptography.hazmat.primitives import serialization
 from dictor import dictor  # type: ignore
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, User
-from django_saml2_auth.errors import (CANNOT_DECODE_JWT_TOKEN,
-                                      CREATE_USER_ERROR, GROUP_JOIN_ERROR,
-                                      INVALID_JWT_ALGORITHM, NO_JWT_ALGORITHM,
-                                      NO_JWT_PRIVATE_KEY, NO_JWT_PUBLIC_KEY,
-                                      NO_JWT_SECRET, NO_USER_ID,
-                                      SHOULD_NOT_CREATE_USER)
-from django_saml2_auth.exceptions import SAMLAuthError
-from django_saml2_auth.utils import run_hook
+
+from django_saml2_auth_multi.config import SAML2_SETTINGS
+from django_saml2_auth_multi.errors import (CANNOT_DECODE_JWT_TOKEN,
+                                            CREATE_USER_ERROR, GROUP_JOIN_ERROR,
+                                            INVALID_JWT_ALGORITHM, NO_JWT_ALGORITHM,
+                                            NO_JWT_PRIVATE_KEY, NO_JWT_PUBLIC_KEY,
+                                            NO_JWT_SECRET, NO_USER_ID,
+                                            SHOULD_NOT_CREATE_USER)
+from django_saml2_auth_multi.exceptions import SAMLAuthError
+from django_saml2_auth_multi.utils import run_hook
 from jwt.algorithms import (get_default_algorithms, has_crypto,
                             requires_cryptography)
 from jwt.exceptions import PyJWTError
@@ -26,6 +27,7 @@ from jwt.exceptions import PyJWTError
 def create_new_user(email: str,
                     first_name: Optional[str] = None,
                     last_name: Optional[str] = None,
+                    settings: Optional[dict] = None,
                     **kwargs) -> User:
     """Create a new user with the given information
 
@@ -44,7 +46,7 @@ def create_new_user(email: str,
     Returns:
         User: Returns a new user object, usually a subclass of the the User model
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
     user_model = get_user_model()
 
     is_active = dictor(saml2_auth_settings, "NEW_USER_PROFILE.ACTIVE_STATUS", default=True)
@@ -90,7 +92,7 @@ def create_new_user(email: str,
     return user
 
 
-def get_or_create_user(user: Dict[str, Any]) -> Tuple[bool, User]:
+def get_or_create_user(user: Dict[str, Any], settings: dict | None = None) -> Tuple[bool, User]:
     """Get or create a new user and optionally add it to one or more group(s)
 
     Args:
@@ -103,12 +105,12 @@ def get_or_create_user(user: Dict[str, Any]) -> Tuple[bool, User]:
     Returns:
         Tuple[bool, User]: A tuple containing user creation status and user object
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
     user_model = get_user_model()
     created = False
 
     try:
-        target_user = get_user(user)
+        target_user = get_user(user, saml2_auth_settings)
     except user_model.DoesNotExist:
         should_create_new_user = dictor(saml2_auth_settings, "CREATE_USER", True)
         if should_create_new_user:
@@ -119,7 +121,7 @@ def get_or_create_user(user: Dict[str, Any]) -> Tuple[bool, User]:
                     "reason": "Cannot create user. Missing user_id.",
                     "status_code": 400
                 })
-            target_user = create_new_user(user_id, user["first_name"], user["last_name"])
+            target_user = create_new_user(user_id, user["first_name"], user["last_name"], saml2_auth_settings)
 
             create_user_trigger = dictor(saml2_auth_settings, "TRIGGER.CREATE_USER")
             if create_user_trigger:
@@ -183,7 +185,7 @@ def get_user_id(user: Union[str, Dict[str, Any]]) -> Optional[str]:
     return user_id.lower() if user_id else None
 
 
-def get_user(user: Union[str, Dict[str, str]]) -> User:
+def get_user(user: Union[str, Dict[str, str]], settings: dict | None = None) -> User:
     """Get user from database given a cleaned user info object or a user_id
 
     Args:
@@ -192,7 +194,7 @@ def get_user(user: Union[str, Dict[str, str]]) -> User:
     Returns:
         User: An instance of the User model
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
     get_user_custom_method = dictor(saml2_auth_settings, "TRIGGER.GET_USER")
 
     user_model = get_user_model()
@@ -298,7 +300,7 @@ def validate_public_key(jwt_algorithm: str, jwt_public_key: str) -> None:
         })
 
 
-def create_jwt_token(user_id: str) -> Optional[str]:
+def create_jwt_token(user_id: str, settings: dict | None = None) -> Optional[str]:
     """Create a new JWT token
 
     Args:
@@ -307,7 +309,7 @@ def create_jwt_token(user_id: str) -> Optional[str]:
     Returns:
         Optional[str]: JWT token
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
     user_model = get_user_model()
 
     jwt_algorithm = dictor(saml2_auth_settings, "JWT_ALGORITHM")
@@ -349,7 +351,7 @@ def create_jwt_token(user_id: str) -> Optional[str]:
     return jwt.encode(payload, secret, algorithm=jwt_algorithm)
 
 
-def create_custom_or_default_jwt(user: Union[str, User]):
+def create_custom_or_default_jwt(user: Union[str, User], settings: dict | None = None):
     """Create a new JWT token, eventually using custom trigger
 
     Args:
@@ -362,7 +364,7 @@ def create_custom_or_default_jwt(user: Union[str, User]):
     Returns:
         Optional[str]: JWT token
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
     user_model = get_user_model()
 
     custom_create_jwt_trigger = dictor(saml2_auth_settings, "TRIGGER.CUSTOM_CREATE_JWT")
@@ -381,7 +383,7 @@ def create_custom_or_default_jwt(user: Union[str, User]):
             _user = {
                 user_model.USERNAME_FIELD: user_id
             }
-            target_user = get_user(_user)
+            target_user = get_user(_user, saml2_auth_settings)
         jwt_token = run_hook(custom_create_jwt_trigger, target_user)  # type: ignore
     else:
         # If user_id is not set, retrieve it from user instance
@@ -395,12 +397,12 @@ def create_custom_or_default_jwt(user: Union[str, User]):
                 "reason": "Cannot create JWT token for login.",
                 "status_code": 500
             })
-        jwt_token = create_jwt_token(user_id)
+        jwt_token = create_jwt_token(user_id, saml2_auth_settings)
 
     return jwt_token
 
 
-def decode_jwt_token(jwt_token: str) -> Optional[str]:
+def decode_jwt_token(jwt_token: str, settings: dict | None = None) -> Optional[str]:
     """Decode a JWT token
 
     Args:
@@ -412,7 +414,7 @@ def decode_jwt_token(jwt_token: str) -> Optional[str]:
     Returns:
         Optional[str]: A user_id as str or None.
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
 
     jwt_algorithm = dictor(saml2_auth_settings, "JWT_ALGORITHM")
     validate_jwt_algorithm(jwt_algorithm)
@@ -441,7 +443,7 @@ def decode_jwt_token(jwt_token: str) -> Optional[str]:
         })
 
 
-def decode_custom_or_default_jwt(jwt_token: str) -> Optional[str]:
+def decode_custom_or_default_jwt(jwt_token: str, settings: dict | None = None) -> Optional[str]:
     """Decode a JWT token, eventually using custom trigger
 
     Args:
@@ -453,10 +455,10 @@ def decode_custom_or_default_jwt(jwt_token: str) -> Optional[str]:
     Returns:
         Optional[str]: A user_id as str or None.
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = settings or SAML2_SETTINGS.default()
     custom_decode_jwt_trigger = dictor(saml2_auth_settings, "TRIGGER.CUSTOM_DECODE_JWT")
     if custom_decode_jwt_trigger:
         user_id = run_hook(custom_decode_jwt_trigger, jwt_token)  # type: ignore
     else:
-        user_id = decode_jwt_token(jwt_token)
+        user_id = decode_jwt_token(jwt_token, settings)
     return user_id
