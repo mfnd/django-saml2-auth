@@ -1,4 +1,4 @@
-"""The setup module for django_saml2_auth.
+"""The setup module for django_saml2_auth_multi.
 See:
 https://github.com/grafana/django_saml2_auth
 """

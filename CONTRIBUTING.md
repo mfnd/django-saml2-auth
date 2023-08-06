@@ -21,7 +21,7 @@ This library is tested against these SAML SSO identity providers. You can probab
 
 For debugging your setup, you can use SAML-tracer add-on on [Firefox](https://addons.mozilla.org/en-US/firefox/addon/saml-tracer/) or extension on [Chrome](https://chrome.google.com/webstore/detail/saml-tracer/mpdajninpobndbfcldcmbpnnbhibjmch?hl=en), which will help you capture SAML SSO traffic and shows you what is passed around in the HTTP messages.
 
-Read the [tests](django_saml2_auth/tests) to learn more about settings and how each function or endpoint works. And when you open a PR, please add tests and documentation. You can also add your name to the list of [authors](AUTHORS.md). When the PR is ready, mention  for the review.
+Read the [tests](django_saml2_auth_multi/tests) to learn more about settings and how each function or endpoint works. And when you open a PR, please add tests and documentation. You can also add your name to the list of [authors](AUTHORS.md). When the PR is ready, mention  for the review.
 
 ## How to Contribute
 

@@ -70,7 +70,7 @@ python setup.py install
 1. Once you have the library installed or in your `requirements.txt`, import the views module in your root `urls.py`:
 
     ```python
-    import django_saml2_auth.views
+    import django_saml2_auth_multi.views
     ```
 
 2. Override the default login page in the root `urls.py` file, by adding these lines **BEFORE** any `urlpatterns`:
@@ -78,7 +78,7 @@ python setup.py install
     ```python
     # These are the SAML2 related URLs. You can change "^saml2_auth/" regex to
     # any path you want, like "^sso/", "^sso_auth/", "^sso_login/", etc. (required)
-    url(r'^sso/', include('django_saml2_auth.urls')),
+    url(r'^sso/', include('django_saml2_auth_multi.urls')),
 
     # The following line will replace the default user login with SAML2 (optional)
     # If you want to specific the after-login-redirect-URL, use parameter "?next=/the/path/you/want"
@@ -96,7 +96,7 @@ python setup.py install
     ```python
     INSTALLED_APPS = [
         '...',
-        'django_saml2_auth',
+        'django_saml2_auth_multi',
     ]
     ```
 
