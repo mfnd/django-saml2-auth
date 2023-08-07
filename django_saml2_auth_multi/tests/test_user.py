@@ -156,7 +156,7 @@ def test_create_new_user_with_dict_success(settings: SettingsWrapper):
         "first_name": "test_John",
         "last_name": "test_Doe"
     }
-    user = create_new_user("user_test@example.com", **params)
+    user = create_new_user("user_test@example.com", **params)  # type: ignore
     # It can also be email depending on USERNAME_FIELD setting
     assert user.username == "user_test@example.com"
     assert user.is_active is True

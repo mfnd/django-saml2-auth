@@ -92,7 +92,7 @@ def create_new_user(email: str,
     return user
 
 
-def get_or_create_user(user: Dict[str, Any], settings: dict | None = None) -> Tuple[bool, User]:
+def get_or_create_user(user: Dict[str, Any], settings: Optional[dict] = None) -> Tuple[bool, User]:
     """Get or create a new user and optionally add it to one or more group(s)
 
     Args:
@@ -121,7 +121,9 @@ def get_or_create_user(user: Dict[str, Any], settings: dict | None = None) -> Tu
                     "reason": "Cannot create user. Missing user_id.",
                     "status_code": 400
                 })
-            target_user = create_new_user(user_id, user["first_name"], user["last_name"], saml2_auth_settings)
+            target_user = create_new_user(
+                user_id, user["first_name"], user["last_name"], saml2_auth_settings
+            )
 
             create_user_trigger = dictor(saml2_auth_settings, "TRIGGER.CREATE_USER")
             if create_user_trigger:
@@ -185,7 +187,7 @@ def get_user_id(user: Union[str, Dict[str, Any]]) -> Optional[str]:
     return user_id.lower() if user_id else None
 
 
-def get_user(user: Union[str, Dict[str, str]], settings: dict | None = None) -> User:
+def get_user(user: Union[str, Dict[str, str]], settings: Optional[dict] = None) -> User:
     """Get user from database given a cleaned user info object or a user_id
 
     Args:
@@ -300,7 +302,7 @@ def validate_public_key(jwt_algorithm: str, jwt_public_key: str) -> None:
         })
 
 
-def create_jwt_token(user_id: str, settings: dict | None = None) -> Optional[str]:
+def create_jwt_token(user_id: str, settings: Optional[dict] = None) -> Optional[str]:
     """Create a new JWT token
 
     Args:
@@ -351,7 +353,7 @@ def create_jwt_token(user_id: str, settings: dict | None = None) -> Optional[str
     return jwt.encode(payload, secret, algorithm=jwt_algorithm)
 
 
-def create_custom_or_default_jwt(user: Union[str, User], settings: dict | None = None):
+def create_custom_or_default_jwt(user: Union[str, User], settings: Optional[dict] = None):
     """Create a new JWT token, eventually using custom trigger
 
     Args:
@@ -402,7 +404,7 @@ def create_custom_or_default_jwt(user: Union[str, User], settings: dict | None =
     return jwt_token
 
 
-def decode_jwt_token(jwt_token: str, settings: dict | None = None) -> Optional[str]:
+def decode_jwt_token(jwt_token: str, settings: Optional[dict] = None) -> Optional[str]:
     """Decode a JWT token
 
     Args:
@@ -443,7 +445,7 @@ def decode_jwt_token(jwt_token: str, settings: dict | None = None) -> Optional[s
         })
 
 
-def decode_custom_or_default_jwt(jwt_token: str, settings: dict | None = None) -> Optional[str]:
+def decode_custom_or_default_jwt(jwt_token: str, settings: Optional[dict] = None) -> Optional[str]:
     """Decode a JWT token, eventually using custom trigger
 
     Args:

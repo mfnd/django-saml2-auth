@@ -1,7 +1,7 @@
 """Utility functions for various SAML client functions.
 """
 import base64
-from typing import Any, Callable, Dict, Mapping, Optional, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Union, Tuple
 from xml.etree import ElementTree
 
 from dictor import dictor  # type: ignore
@@ -86,7 +86,7 @@ def validate_metadata_url(url: str) -> bool:
     return True
 
 
-def get_metadata(user_id: Optional[str] = None, idp: str | None = None) -> Mapping[str, Any]:
+def get_metadata(user_id: Optional[str] = None, idp: Optional[str] = None) -> Mapping[str, Any]:
     """Returns metadata information, either by running the GET_METADATA_AUTO_CONF_URLS hook function
     if available, or by checking and returning a local file path or the METADATA_AUTO_CONF_URL. URLs
     are always validated and invalid URLs will be either filtered or raise a SAMLAuthError
@@ -138,12 +138,15 @@ def get_metadata(user_id: Optional[str] = None, idp: str | None = None) -> Mappi
             })
 
 
-def get_idp_from_saml_response(saml_response: str):
+def get_idp_from_saml_response(saml_response: str) -> str:
     try:
         parsed_xml = ElementTree.fromstring(saml_response)
-        entity_id = parsed_xml.find("{urn:oasis:names:tc:SAML:2.0:assertion}Issuer").text
-        idp_settings = SAML2_SETTINGS.get_idp_settings(entity_id)
-        return idp_settings["IDP_ID"]
+        if issuer_node := parsed_xml.find("{urn:oasis:names:tc:SAML:2.0:assertion}Issuer"):
+            entity_id = issuer_node.text
+            idp_settings = SAML2_SETTINGS.get_idp_settings(entity_id)
+            return idp_settings["IDP_ID"]
+        else:
+            raise ValueError("Issuer not found in assertion")
     except Exception as e:
         raise SAMLAuthError("Could not get Issuer from response.", extra={
             "exc_type": e,
@@ -155,7 +158,7 @@ def get_idp_from_saml_response(saml_response: str):
 
 def get_saml_client(domain: str,
                     acs: Callable[..., HttpResponse],
-                    idp: str | None = None,
+                    idp: Optional[str] = None,
                     user_id: Optional[str] = None,
                     saml_response: Optional[str] = None) -> Optional[Saml2Client]:
     """Create a new Saml2Config object with the given config and return an initialized Saml2Client
@@ -266,8 +269,7 @@ def get_saml_client(domain: str,
 
 def decode_saml_response(
         request: HttpRequest,
-        acs: Callable[..., HttpResponse]) -> Union[
-            HttpResponseRedirect, Optional[AuthnResponse], None]:
+        acs: Callable[..., HttpResponse]) -> Tuple[AuthnResponse, Optional[str]]:
     """Given a request, the authentication response inside the SAML response body is parsed,
     decoded and returned. If there are any issues parsing the request, the identity or the issuer,
     an exception is raised.
@@ -305,7 +307,9 @@ def decode_saml_response(
     if saml_response:
         idp = get_idp_from_saml_response(saml_response)
 
-    saml_client = get_saml_client(get_assertion_url(request, idp), acs, idp, saml_response=saml_response)
+    saml_client = get_saml_client(
+        get_assertion_url(request, idp), acs, idp, saml_response=saml_response
+    )
     if not saml_client:
         raise SAMLAuthError("There was an error creating the SAML client.", extra={
             "exc_type": ValueError,
@@ -350,7 +354,8 @@ def decode_saml_response(
     return authn_response, idp
 
 
-def extract_user_identity(user_identity: Dict[str, Any], idp: str | None = None) -> Dict[str, Optional[Any]]:
+def extract_user_identity(user_identity: Dict[str, Any],
+                          idp: Optional[str] = None) -> Dict[str, Optional[Any]]:
     """Extract user information from SAML user identity object
 
     Args:

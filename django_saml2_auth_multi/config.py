@@ -29,7 +29,8 @@ class SAMLSettings:
             for conf in idp_config:
                 if "IDP_ID" not in conf:
                     raise ImproperlyConfigured(
-                        "Entity ID ('ID') of an IDP config is not set in 'SAML2_AUTH'. Set it to Entity ID of your IDP"
+                        "Entity ID ('ID') of an IDP config is not set in 'SAML2_AUTH'. "
+                        "Set it to Entity ID of your IDP"
                     )
                 idp_id = conf["IDP_ID"]
                 base = deepcopy(defaults)

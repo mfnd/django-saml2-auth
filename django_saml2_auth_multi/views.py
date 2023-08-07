@@ -192,7 +192,7 @@ def acs(request: HttpRequest):
 
 
 @exception_handler
-def sp_initiated_login(request: HttpRequest, idp: str | None = None) -> HttpResponseRedirect:
+def sp_initiated_login(request: HttpRequest, idp: Optional[str] = None) -> HttpResponseRedirect:
     """This view is called by the SP to initiate a login to IdP, aka. SP-initiated SAML SSP.
 
     Args:
@@ -214,13 +214,14 @@ def sp_initiated_login(request: HttpRequest, idp: str | None = None) -> HttpResp
                     "status_code": 403
                 })
             saml_client = get_saml_client(get_assertion_url(request, idp), acs, idp, user_id)
-            jwt_token = create_custom_or_default_jwt(user_id) # TODO: NoSettings
+            jwt_token = create_custom_or_default_jwt(user_id)  # TODO: NoSettings
             _, info = saml_client.prepare_for_authenticate(  # type: ignore
                 sign=False, relay_state=jwt_token)
             redirect_url = dict(info["headers"]).get("Location", "")
             if not redirect_url:
                 return HttpResponseRedirect(
-                    get_reverse([denied, "denied", "django_saml2_auth_multi:denied"]))  # type: ignore
+                    get_reverse([denied, "denied", "django_saml2_auth_multi:denied"])  # type: ignore
+                )
             return HttpResponseRedirect(redirect_url)
     else:
         raise SAMLAuthError("Request method is not supported.", extra={

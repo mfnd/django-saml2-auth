@@ -6,7 +6,10 @@ import pytest
 from django.http import HttpRequest, HttpResponse
 from django.urls import NoReverseMatch
 from django_saml2_auth_multi.exceptions import SAMLAuthError
-from django_saml2_auth_multi.utils import exception_handler, get_reverse, run_hook, is_jwt_well_formed
+from django_saml2_auth_multi.utils import (exception_handler,
+                                           get_reverse,
+                                           run_hook,
+                                           is_jwt_well_formed)
 
 
 def divide(a: int, b: int = 1) -> int:
