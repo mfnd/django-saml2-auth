@@ -1,10 +1,10 @@
-# Django SAML2 Authentication
+# Django SAML2 Authentication Multi
 
 [![PyPI](https://img.shields.io/pypi/v/django-saml2-auth-multi?label=version&logo=pypi)](https://pypi.org/project/django-saml2-auth-multi/)
 
 This plugin provides a simple way to integrate SAML2 Authentication into your Django-powered app. SAML SSO is a standard, so practically any SAML2 based SSO identity provider is supported.
 
-This project is a fork of [django-saml2-auth](https://github.com/grafana/django-saml2-auth) and adds support for configuring multiple IDPs with separate configuration parameters. It should be compatible with existing deployments and configurations; nevertheless, unless you need additional features in this package (also which may not compatible with your use case), it is suggested to use base package.
+This project is a fork of [django-saml2-auth](https://github.com/grafana/django-saml2-auth) and adds support for configuring multiple IDPs with separate configuration parameters. It should be compatible with existing deployments and configurations; nevertheless, unless you need additional features in this package (also which may not compatible with your use case), it is highly suggested to use base package.
 
 This plugin supports both identity provider and service provider-initiated SSO:
 

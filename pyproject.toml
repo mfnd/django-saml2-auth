@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "django_saml2_auth_multi"
-version = "3.11.0-rc1"
-description = "Django SAML2 Authentication Made Easy."
+version = "3.11.0"
+description = "Django SAML2 Authentication For Multi IdP Setups Made Easy."
 license = "Apache 2.0"
 keywords = ["django", "saml", "saml2sso", "authentication", "okta", "standard"]
 classifiers = ["Development Status :: 5 - Production/Stable", "Intended Audience :: Developers", "Topic :: Software Development :: Libraries :: Python Modules", "License :: OSI Approved :: Apache Software License", "Framework :: Django :: 2.2", "Framework :: Django :: 3.2", "Framework :: Django :: 4.0", "Framework :: Django :: 4.1", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3.7", "Programming Language :: Python :: 3.8", "Programming Language :: Python :: 3.9", "Programming Language :: Python :: 3.10", "Programming Language :: Python :: 3.11"]
