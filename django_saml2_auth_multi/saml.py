@@ -1,11 +1,11 @@
 """Utility functions for various SAML client functions.
 """
 import base64
-from typing import Any, Callable, Dict, Mapping, Optional, Union, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 from xml.etree import ElementTree
 
 from dictor import dictor  # type: ignore
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse
 from django.urls import NoReverseMatch
 
 from django_saml2_auth_multi.config import SAML2_SETTINGS

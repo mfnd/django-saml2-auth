@@ -220,7 +220,9 @@ def sp_initiated_login(request: HttpRequest, idp: Optional[str] = None) -> HttpR
             redirect_url = dict(info["headers"]).get("Location", "")
             if not redirect_url:
                 return HttpResponseRedirect(
-                    get_reverse([denied, "denied", "django_saml2_auth_multi:denied"])  # type: ignore
+                    get_reverse(
+                        [denied, "denied", "django_saml2_auth_multi:denied"]
+                    )  # type: ignore
                 )
             return HttpResponseRedirect(redirect_url)
     else:
