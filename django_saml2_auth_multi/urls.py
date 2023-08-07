@@ -1,9 +1,9 @@
 """Django URL mappings"""
 
 from django.urls import path
-from django_saml2_auth import views
+from django_saml2_auth_multi import views
 
-app_name = "django_saml2_auth"
+app_name = "django_saml2_auth_multi"
 
 urlpatterns = [
     path(r"acs/", views.acs, name="acs"),

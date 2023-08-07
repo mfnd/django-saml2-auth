@@ -5,8 +5,11 @@ Tests for utils.py
 import pytest
 from django.http import HttpRequest, HttpResponse
 from django.urls import NoReverseMatch
-from django_saml2_auth.exceptions import SAMLAuthError
-from django_saml2_auth.utils import exception_handler, get_reverse, run_hook, is_jwt_well_formed
+from django_saml2_auth_multi.exceptions import SAMLAuthError
+from django_saml2_auth_multi.utils import (exception_handler,
+                                           get_reverse,
+                                           run_hook,
+                                           is_jwt_well_formed)
 
 
 def divide(a: int, b: int = 1) -> int:
@@ -54,7 +57,7 @@ def goodbye(_: HttpRequest) -> None:
 
 def test_run_hook_success():
     """Test run_hook function against divide function imported from current module."""
-    result = run_hook("django_saml2_auth.tests.test_utils.divide", 2, b=2)
+    result = run_hook("django_saml2_auth_multi.tests.test_utils.divide", 2, b=2)
     assert result == 1
 
 
@@ -79,10 +82,10 @@ def test_run_hook_import_error():
     """Test run_hook function by passing correct path, but nonexistent function and
     checking if it raises."""
     with pytest.raises(SAMLAuthError) as exc_info:
-        run_hook("django_saml2_auth.tests.test_utils.nonexistent_divide", 2, b=2)
+        run_hook("django_saml2_auth_multi.tests.test_utils.nonexistent_divide", 2, b=2)
 
     assert str(exc_info.value) == (
-        "module 'django_saml2_auth.tests.test_utils' has no attribute 'nonexistent_divide'")
+        "module 'django_saml2_auth_multi.tests.test_utils' has no attribute 'nonexistent_divide'")
     assert isinstance(exc_info.value.extra["exc"], AttributeError)
     assert exc_info.value.extra["exc_type"] == AttributeError
 
@@ -90,7 +93,7 @@ def test_run_hook_import_error():
 def test_run_hook_division_by_zero():
     """Test function imported by run_hook to verify if run_hook correctly captures the exception."""
     with pytest.raises(SAMLAuthError) as exc_info:
-        run_hook("django_saml2_auth.tests.test_utils.divide", 2, b=0)
+        run_hook("django_saml2_auth_multi.tests.test_utils.divide", 2, b=0)
 
     assert str(exc_info.value) == "division by zero"
     # Actually a ZeroDivisionError wrapped in SAMLAuthError

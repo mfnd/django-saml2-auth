@@ -3,21 +3,23 @@ E.g. creating SAML client, creating user, exception handling, etc.
 """
 
 import base64
+import traceback
 from functools import wraps
 from importlib import import_module
 import logging
 from typing import (Any, Callable, Dict, Iterable, Mapping, Optional, Tuple,
                     Union)
 
-from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import NoReverseMatch, reverse
 from django.utils.module_loading import import_string
-from django_saml2_auth.errors import (EMPTY_FUNCTION_PATH, GENERAL_EXCEPTION,
-                                      IMPORT_ERROR, NO_REVERSE_MATCH,
-                                      PATH_ERROR)
-from django_saml2_auth.exceptions import SAMLAuthError
+
+from django_saml2_auth_multi.config import SAML2_SETTINGS
+from django_saml2_auth_multi.errors import (EMPTY_FUNCTION_PATH, GENERAL_EXCEPTION,
+                                            IMPORT_ERROR, NO_REVERSE_MATCH,
+                                            PATH_ERROR)
+from django_saml2_auth_multi.exceptions import SAMLAuthError
 
 
 def run_hook(function_path: str,
@@ -152,8 +154,9 @@ def exception_handler(
             HttpResponse: Rendered error page with details
         """
         logger = logging.getLogger(__name__)
-        if getattr(settings.SAML2_AUTH, "DEBUG", False):
+        if SAML2_SETTINGS.debug:
             # Log the exception with traceback
+            traceback.print_exc()
             logger.exception(exc)
         else:
             # Log the exception without traceback
@@ -166,12 +169,12 @@ def exception_handler(
             status = 500
 
         return render(request,
-                      "django_saml2_auth/error.html",
+                      "django_saml2_auth_multi/error.html",
                       context=context,
                       status=status)
 
     @ wraps(function)
-    def wrapper(request: HttpRequest) -> HttpResponse:
+    def wrapper(request: HttpRequest, **kwargs) -> HttpResponse:
         """Decorated function is wrapped and called here
 
         Args:
@@ -182,7 +185,7 @@ def exception_handler(
         """
         result = None
         try:
-            result = function(request)
+            result = function(request, **kwargs)
         except (SAMLAuthError, Exception) as exc:
             result = handle_exception(exc, request)
         return result
@@ -213,3 +216,9 @@ def is_jwt_well_formed(jwt: str):
                     return False
     # If tests not passed return False
     return False
+
+
+def extract_claim(claims, key, index=0):
+    if claim := claims.get(key):
+        return claim[index]
+    return None

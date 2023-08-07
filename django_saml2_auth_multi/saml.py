@@ -1,26 +1,28 @@
 """Utility functions for various SAML client functions.
 """
 import base64
-from typing import Any, Callable, Dict, Mapping, Optional, Union
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple
+from xml.etree import ElementTree
 
 from dictor import dictor  # type: ignore
-from django.conf import settings
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse
 from django.urls import NoReverseMatch
-from django_saml2_auth.errors import (ERROR_CREATING_SAML_CONFIG_OR_CLIENT,
-                                      INVALID_METADATA_URL,
-                                      NO_ISSUER_IN_SAML_RESPONSE,
-                                      NO_METADATA_URL_ASSOCIATED,
-                                      NO_METADATA_URL_OR_FILE,
-                                      NO_NAME_ID_IN_SAML_RESPONSE,
-                                      NO_SAML_CLIENT,
-                                      NO_SAML_RESPONSE_FROM_CLIENT,
-                                      NO_SAML_RESPONSE_FROM_IDP,
-                                      NO_TOKEN_SPECIFIED,
-                                      NO_USER_IDENTITY_IN_SAML_RESPONSE,
-                                      NO_USERNAME_OR_EMAIL_SPECIFIED)
-from django_saml2_auth.exceptions import SAMLAuthError
-from django_saml2_auth.utils import get_reverse, run_hook
+
+from django_saml2_auth_multi.config import SAML2_SETTINGS
+from django_saml2_auth_multi.errors import (ERROR_CREATING_SAML_CONFIG_OR_CLIENT,
+                                            INVALID_METADATA_URL,
+                                            NO_ISSUER_IN_SAML_RESPONSE,
+                                            NO_METADATA_URL_ASSOCIATED,
+                                            NO_METADATA_URL_OR_FILE,
+                                            NO_NAME_ID_IN_SAML_RESPONSE,
+                                            NO_SAML_CLIENT,
+                                            NO_SAML_RESPONSE_FROM_CLIENT,
+                                            NO_SAML_RESPONSE_FROM_IDP,
+                                            NO_TOKEN_SPECIFIED,
+                                            NO_USER_IDENTITY_IN_SAML_RESPONSE,
+                                            NO_USERNAME_OR_EMAIL_SPECIFIED)
+from django_saml2_auth_multi.exceptions import SAMLAuthError
+from django_saml2_auth_multi.utils import get_reverse, run_hook, extract_claim
 from saml2 import BINDING_HTTP_POST, BINDING_HTTP_REDIRECT, entity
 from saml2.client import Saml2Client
 from saml2.config import Config as Saml2Config
@@ -29,7 +31,7 @@ from saml2.mdstore import MetaDataExtern
 from saml2.response import AuthnResponse
 
 
-def get_assertion_url(request: HttpRequest) -> str:
+def get_assertion_url(request: HttpRequest, idp=None) -> str:
     """Extract protocol and domain name from request, if ASSERTION_URL is not specified in settings,
     otherwise the ASSERTION_URL is returned.
 
@@ -39,7 +41,7 @@ def get_assertion_url(request: HttpRequest) -> str:
     Returns:
         str: Either protocol://host or ASSERTION_URL
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
     assertion_url = dictor(saml2_auth_settings, "ASSERTION_URL")
     if assertion_url:
         return assertion_url
@@ -49,14 +51,14 @@ def get_assertion_url(request: HttpRequest) -> str:
     return f"{protocol}://{host}"
 
 
-def get_default_next_url() -> Optional[str]:
+def get_default_next_url(idp=None) -> Optional[str]:
     """Get default next url for redirection, which is either the DEFAULT_NEXT_URL from settings or
     admin index.
 
     Returns:
         Optional[str]: Returns default next url for redirection or admin index
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
     default_next_url = dictor(saml2_auth_settings, "DEFAULT_NEXT_URL")
     if default_next_url:
         return default_next_url
@@ -84,7 +86,7 @@ def validate_metadata_url(url: str) -> bool:
     return True
 
 
-def get_metadata(user_id: Optional[str] = None) -> Mapping[str, Any]:
+def get_metadata(user_id: Optional[str] = None, idp: Optional[str] = None) -> Mapping[str, Any]:
     """Returns metadata information, either by running the GET_METADATA_AUTO_CONF_URLS hook function
     if available, or by checking and returning a local file path or the METADATA_AUTO_CONF_URL. URLs
     are always validated and invalid URLs will be either filtered or raise a SAMLAuthError
@@ -102,7 +104,7 @@ def get_metadata(user_id: Optional[str] = None) -> Mapping[str, Any]:
     Returns:
         Mapping[str, Any]: Returns a SAML metadata object as dictionary
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
     get_metadata_trigger = dictor(saml2_auth_settings, "TRIGGER.GET_METADATA_AUTO_CONF_URLS")
     if get_metadata_trigger:
         metadata_urls = run_hook(get_metadata_trigger, user_id)  # type: ignore
@@ -136,8 +138,27 @@ def get_metadata(user_id: Optional[str] = None) -> Mapping[str, Any]:
             })
 
 
+def get_idp_from_saml_response(saml_response: str) -> str:
+    try:
+        parsed_xml = ElementTree.fromstring(saml_response)
+        if issuer_node := parsed_xml.find("{urn:oasis:names:tc:SAML:2.0:assertion}Issuer"):
+            entity_id = issuer_node.text
+            idp_settings = SAML2_SETTINGS.get_idp_settings(entity_id)
+            return idp_settings["IDP_ID"]
+        else:
+            raise ValueError("Issuer not found in assertion")
+    except Exception as e:
+        raise SAMLAuthError("Could not get Issuer from response.", extra={
+            "exc_type": e,
+            "error_code": NO_ISSUER_IN_SAML_RESPONSE,  # TODO: Different error code?
+            "reason": "There was an error processing your request.",
+            "status_code": 500
+        })
+
+
 def get_saml_client(domain: str,
                     acs: Callable[..., HttpResponse],
+                    idp: Optional[str] = None,
                     user_id: Optional[str] = None,
                     saml_response: Optional[str] = None) -> Optional[Saml2Client]:
     """Create a new Saml2Config object with the given config and return an initialized Saml2Client
@@ -158,15 +179,17 @@ def get_saml_client(domain: str,
     Returns:
         Optional[Saml2Client]: A Saml2Client or None
     """
-    # get_reverse raises an exception if the view is not found, so we can safely ignore type errors
-    acs_url = domain + get_reverse([acs, "acs", "django_saml2_auth:acs"])  # type: ignore
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
 
-    get_user_id_from_saml_response = dictor(settings.SAML2_AUTH,
+    # get_reverse raises an exception if the view is not found, so we can safely ignore type errors
+    acs_url = domain + get_reverse([acs, "acs", "django_saml2_auth_multi:acs"])  # type: ignore
+
+    get_user_id_from_saml_response = dictor(saml2_auth_settings,
                                             "TRIGGER.GET_USER_ID_FROM_SAML_RESPONSE")
     if get_user_id_from_saml_response and saml_response:
         user_id = run_hook(get_user_id_from_saml_response, saml_response, user_id)  # type: ignore
 
-    metadata = get_metadata(user_id)
+    metadata = get_metadata(user_id, idp)
     if (metadata and (
             ("local" in metadata and not metadata["local"]) or
             ("remote" in metadata and not metadata["remote"])
@@ -177,8 +200,6 @@ def get_saml_client(domain: str,
             "reason": "There was an error processing your request.",
             "status_code": 500
         })
-
-    saml2_auth_settings = settings.SAML2_AUTH
 
     saml_settings: Dict[str, Any] = {
         "metadata": metadata,
@@ -248,8 +269,7 @@ def get_saml_client(domain: str,
 
 def decode_saml_response(
         request: HttpRequest,
-        acs: Callable[..., HttpResponse]) -> Union[
-            HttpResponseRedirect, Optional[AuthnResponse], None]:
+        acs: Callable[..., HttpResponse]) -> Tuple[AuthnResponse, Optional[str]]:
     """Given a request, the authentication response inside the SAML response body is parsed,
     decoded and returned. If there are any issues parsing the request, the identity or the issuer,
     an exception is raised.
@@ -282,7 +302,14 @@ def decode_saml_response(
         saml_response = base64.b64decode(response).decode('UTF-8')
     except Exception:
         saml_response = None
-    saml_client = get_saml_client(get_assertion_url(request), acs, saml_response=saml_response)
+
+    idp = None
+    if saml_response:
+        idp = get_idp_from_saml_response(saml_response)
+
+    saml_client = get_saml_client(
+        get_assertion_url(request, idp), acs, idp, saml_response=saml_response
+    )
     if not saml_client:
         raise SAMLAuthError("There was an error creating the SAML client.", extra={
             "exc_type": ValueError,
@@ -324,10 +351,11 @@ def decode_saml_response(
             "status_code": 500
         })
 
-    return authn_response
+    return authn_response, idp
 
 
-def extract_user_identity(user_identity: Dict[str, Any]) -> Dict[str, Optional[Any]]:
+def extract_user_identity(user_identity: Dict[str, Any],
+                          idp: Optional[str] = None) -> Dict[str, Optional[Any]]:
     """Extract user information from SAML user identity object
 
     Args:
@@ -341,7 +369,7 @@ def extract_user_identity(user_identity: Dict[str, Any]) -> Dict[str, Optional[A
         Dict[str, Optional[Any]]: Cleaned user information plus user_identity
             for backwards compatibility
     """
-    saml2_auth_settings = settings.SAML2_AUTH
+    saml2_auth_settings = SAML2_SETTINGS.get_idp_settings(idp)
 
     email_field = dictor(
         saml2_auth_settings, "ATTRIBUTES_MAP.email", default="user.email")
@@ -353,10 +381,10 @@ def extract_user_identity(user_identity: Dict[str, Any]) -> Dict[str, Optional[A
         saml2_auth_settings, "ATTRIBUTES_MAP.last_name", default="user.last_name")
 
     user = {}
-    user["email"] = dictor(user_identity, f"{email_field}/0", pathsep="/")  # Path includes "."
-    user["username"] = dictor(user_identity, f"{username_field}/0", pathsep="/")
-    user["first_name"] = dictor(user_identity, f"{firstname_field}/0", pathsep="/")
-    user["last_name"] = dictor(user_identity, f"{lastname_field}/0", pathsep="/")
+    user["email"] = extract_claim(user_identity, email_field)
+    user["username"] = extract_claim(user_identity, username_field)
+    user["first_name"] = extract_claim(user_identity, firstname_field)
+    user["last_name"] = extract_claim(user_identity, lastname_field)
 
     token_required = dictor(saml2_auth_settings, "TOKEN_REQUIRED", default=True)
     if token_required:

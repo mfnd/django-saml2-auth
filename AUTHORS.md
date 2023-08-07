@@ -1,12 +1,13 @@
-This project is currently maintained by Mostafa Moradian and various contributors:
-
 # Django SAML2 Auth
 
 - Original author:
   - [Li Fang](https://github.com/fangli)
 
-- Current maintainer:
+- Current maintainer of [django-saml2-auth](https://github.com/grafana/django-saml2-auth):
   - [Mostafa Moradian](https://github.com/mostafa) (k6.io & Grafana Labs)
+
+- Current maintainer of [django-saml2-auth-multi](https://github.com/mfnd/django-saml2-auth-multi)
+  - [Mustafa Efendioglu](https://github.com/mfnd)
 
 # Dependencies
 

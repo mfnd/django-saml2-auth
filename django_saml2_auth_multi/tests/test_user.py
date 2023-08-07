@@ -7,10 +7,12 @@ from typing import Any, Dict, Union
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, User
-from django_saml2_auth.exceptions import SAMLAuthError
-from django_saml2_auth.user import (create_custom_or_default_jwt, create_new_user,
-                                    decode_custom_or_default_jwt, get_or_create_user,
-                                    get_user, get_user_id)
+
+from django_saml2_auth_multi.config import SAML2_SETTINGS
+from django_saml2_auth_multi.exceptions import SAMLAuthError
+from django_saml2_auth_multi.user import (create_custom_or_default_jwt, create_new_user,
+                                          decode_custom_or_default_jwt, get_or_create_user,
+                                          get_user, get_user_id)
 from jwt.exceptions import PyJWTError
 from pytest_django.fixtures import SettingsWrapper
 
@@ -121,6 +123,7 @@ def test_create_new_user_success(settings: SettingsWrapper):
             "USER_GROUPS": ["users"],
         }
     }
+    SAML2_SETTINGS.load()
 
     # Create a group for the users to join
     Group.objects.create(name="users")
@@ -145,6 +148,7 @@ def test_create_new_user_with_dict_success(settings: SettingsWrapper):
             "USER_GROUPS": ["users"],
         }
     }
+    SAML2_SETTINGS.load()
 
     # Create a group for the users to join
     Group.objects.create(name="users")
@@ -152,7 +156,7 @@ def test_create_new_user_with_dict_success(settings: SettingsWrapper):
         "first_name": "test_John",
         "last_name": "test_Doe"
     }
-    user = create_new_user("user_test@example.com", **params)
+    user = create_new_user("user_test@example.com", **params)  # type: ignore
     # It can also be email depending on USERNAME_FIELD setting
     assert user.username == "user_test@example.com"
     assert user.is_active is True
@@ -173,6 +177,7 @@ def test_create_new_user_with_dict_success__no_first_and_last_name(settings: Set
             "USER_GROUPS": ["users"],
         }
     }
+    SAML2_SETTINGS.load()
 
     # Create a group for the users to join
     Group.objects.create(name="users")
@@ -198,6 +203,7 @@ def test_create_new_user_no_group_error(settings: SettingsWrapper):
             "USER_GROUPS": ["users"],
         }
     }
+    SAML2_SETTINGS.load()
 
     with pytest.raises(SAMLAuthError) as exc_info:
         create_new_user("test@example.com", "John", "Doe")
@@ -233,6 +239,7 @@ def test_get_or_create_user_success(settings: SettingsWrapper):
             "consumers": "users"
         }
     }
+    SAML2_SETTINGS.load()
 
     Group.objects.create(name="users")
     created, user = get_or_create_user({
@@ -263,9 +270,10 @@ def test_get_or_create_user_trigger_error(settings: SettingsWrapper):
     """
     settings.SAML2_AUTH = {
         "TRIGGER": {
-            "CREATE_USER": "django_saml2_auth.tests.test_user.nonexistent_trigger",
+            "CREATE_USER": "django_saml2_auth_multi.tests.test_user.nonexistent_trigger",
         }
     }
+    SAML2_SETTINGS.load()
 
     with pytest.raises(SAMLAuthError) as exc_info:
         get_or_create_user({
@@ -275,7 +283,7 @@ def test_get_or_create_user_trigger_error(settings: SettingsWrapper):
         })
 
     assert str(exc_info.value) == (
-        "module 'django_saml2_auth.tests.test_user' has no attribute 'nonexistent_trigger'")
+        "module 'django_saml2_auth_multi.tests.test_user' has no attribute 'nonexistent_trigger'")
     assert exc_info.value.extra is not None
     assert isinstance(exc_info.value.extra["exc"], AttributeError)
 
@@ -290,9 +298,10 @@ def test_get_user_trigger_error(settings: SettingsWrapper):
     """
     settings.SAML2_AUTH = {
         "TRIGGER": {
-            "GET_USER": "django_saml2_auth.tests.test_user.nonexistent_trigger",
+            "GET_USER": "django_saml2_auth_multi.tests.test_user.nonexistent_trigger",
         }
     }
+    SAML2_SETTINGS.load()
     with pytest.raises(SAMLAuthError) as exc_info:
         get_user({
             "username": "test@example.com",
@@ -301,7 +310,7 @@ def test_get_user_trigger_error(settings: SettingsWrapper):
         })
 
     assert str(exc_info.value) == (
-        "module 'django_saml2_auth.tests.test_user' has no attribute 'nonexistent_trigger'")
+        "module 'django_saml2_auth_multi.tests.test_user' has no attribute 'nonexistent_trigger'")
     assert exc_info.value.extra is not None
     assert isinstance(exc_info.value.extra["exc"], AttributeError)
 
@@ -311,9 +320,10 @@ def test_get_user_trigger(settings: SettingsWrapper):
 
     settings.SAML2_AUTH = {
         "TRIGGER": {
-            "GET_USER": "django_saml2_auth.tests.test_user.trigger_get_user",
+            "GET_USER": "django_saml2_auth_multi.tests.test_user.trigger_get_user",
         }
     }
+    SAML2_SETTINGS.load()
     user_model = get_user_model()
     user_model.objects.create(
         username="test_example_com", email="test@example.com")
@@ -336,9 +346,10 @@ def test_get_or_create_user_trigger_change_first_name(settings: SettingsWrapper)
     """
     settings.SAML2_AUTH = {
         "TRIGGER": {
-            "CREATE_USER": "django_saml2_auth.tests.test_user.trigger_change_first_name",
+            "CREATE_USER": "django_saml2_auth_multi.tests.test_user.trigger_change_first_name",
         }
     }
+    SAML2_SETTINGS.load()
 
     created, user = get_or_create_user({
         "username": "test@example.com",
@@ -364,6 +375,7 @@ def test_get_or_create_user_should_not_create_user(settings: SettingsWrapper):
     settings.SAML2_AUTH = {
         "CREATE_USER": False,
     }
+    SAML2_SETTINGS.load()
 
     with pytest.raises(SAMLAuthError) as exc_info:
         get_or_create_user({
@@ -391,6 +403,7 @@ def test_get_or_create_user_should_not_create_group(settings: SettingsWrapper):
             "groups": "groups",
         }
     }
+    SAML2_SETTINGS.load()
 
     Group.objects.create(name="users")
     created, user = get_or_create_user({
@@ -427,6 +440,7 @@ def test_get_or_create_user_should_create_group(settings: SettingsWrapper):
             "groups": "groups",
         },
     }
+    SAML2_SETTINGS.load()
 
     Group.objects.create(name="users")
     created, user = get_or_create_user({
@@ -466,6 +480,7 @@ def test_get_or_create_user_should_create_and_map_group(settings: SettingsWrappe
             "consumers": "customers",
         },
     }
+    SAML2_SETTINGS.load()
 
     Group.objects.create(name="users")
     created, user = get_or_create_user(
@@ -533,6 +548,7 @@ def test_create_and_decode_jwt_token_success(
         saml2_settings (Dict[str, Any]): Fixture for SAML2 settings
     """
     settings.SAML2_AUTH = saml2_settings
+    SAML2_SETTINGS.load()
 
     jwt_token = create_custom_or_default_jwt("test@example.com")
     user_id = decode_custom_or_default_jwt(jwt_token)
@@ -573,6 +589,7 @@ def test_create_jwt_token_with_incorrect_jwt_settings(
         error_msg (str): Expected error message
     """
     settings.SAML2_AUTH = saml2_settings
+    SAML2_SETTINGS.load()
 
     with pytest.raises(SAMLAuthError) as exc_info:
         create_custom_or_default_jwt("test@example.com")
@@ -619,6 +636,7 @@ def test_decode_jwt_token_with_incorrect_jwt_settings(
         error_msg (str): Expected error message
     """
     settings.SAML2_AUTH = saml2_settings
+    SAML2_SETTINGS.load()
 
     with pytest.raises(SAMLAuthError) as exc_info:
         decode_custom_or_default_jwt("WHATEVER")

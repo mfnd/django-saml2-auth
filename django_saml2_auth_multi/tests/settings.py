@@ -16,7 +16,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django_saml2_auth",
+    "django_saml2_auth_multi",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -27,7 +27,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-ROOT_URLCONF = "django_saml2_auth.urls"
+ROOT_URLCONF = "django_saml2_auth_multi.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -43,7 +43,7 @@ TEMPLATES = [
         },
     },
 ]
-WSGI_APPLICATION = "django_saml2_auth.wsgi.application"
+WSGI_APPLICATION = "django_saml2_auth_multi.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -89,9 +89,9 @@ SAML2_AUTH = {
         "token": "token"
     },
     "TRIGGER": {
-        "BEFORE_LOGIN": "django_saml2_auth.tests.test_user.saml_user_setup",
+        "BEFORE_LOGIN": "django_saml2_auth_multi.tests.test_user.saml_user_setup",
         "GET_METADATA_AUTO_CONF_URLS":
-        "django_saml2_auth.tests.test_saml.get_metadata_auto_conf_urls"
+        "django_saml2_auth_multi.tests.test_saml.get_metadata_auto_conf_urls"
     },
     "ASSERTION_URL": "https://api.example.com",
     "ENTITY_ID": "https://api.example.com/sso/acs/",

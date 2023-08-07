@@ -1,8 +1,10 @@
 # Django SAML2 Authentication
 
-[![PyPI](https://img.shields.io/pypi/v/grafana-django-saml2-auth?label=version&logo=pypi)](https://pypi.org/project/grafana-django-saml2-auth/) [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/grafana/django-saml2-auth/deploy.yml?branch=main&logo=github)](https://github.com/grafana/django-saml2-auth/actions) [![Coveralls](https://img.shields.io/coveralls/github/grafana/django-saml2-auth?logo=coveralls)](https://coveralls.io/github/grafana/django-saml2-auth) [![Downloads](https://pepy.tech/badge/grafana-django-saml2-auth)](https://pepy.tech/project/grafana-django-saml2-auth)
+[![PyPI](https://img.shields.io/pypi/v/django-saml2-auth-multi?label=version&logo=pypi)](https://pypi.org/project/django-saml2-auth-multi/)
 
 This plugin provides a simple way to integrate SAML2 Authentication into your Django-powered app. SAML SSO is a standard, so practically any SAML2 based SSO identity provider is supported.
+
+This project is a fork of [django-saml2-auth](https://github.com/grafana/django-saml2-auth) and adds support for configuring multiple IDPs with separate configuration parameters. It should be compatible with existing deployments and configurations; nevertheless, unless you need additional features in this package (also which may not compatible with your use case), it is suggested to use base package.
 
 This plugin supports both identity provider and service provider-initiated SSO:
 
@@ -11,45 +13,13 @@ This plugin supports both identity provider and service provider-initiated SSO:
 
 For IdP-initiated SSO, the user will be created if it doesn't exist. Still, for SP-initiated SSO, the user should exist in your platform for the code to detect and redirect them to the correct application on the identity provider platform.
 
-## Project Information
-
-- Original Author: Fang Li ([@fangli](https://github.com/fangli))
-- Maintainer: Mostafa Moradian ([@mostafa](https://github.com/mostafa))
-- Version support matrix:
-    | **Python**                   | **Django** | **django-saml2-auth** | **End of Support<br/>(django-saml2-auth)** | **End of extended support<br/>(Django)** |
-    | ---------------------------- | ---------- | --------------------- | ------------------------------------------ | ---------------------------------------- |
-    | 3.7.x, 3.8.x, 3.9.x, 3.10.x  | 2.2.x      | >=3.4.0               | 3.10.0                                     | April 11, 2022                           |
-    | 3.7.x, 3.8.x, 3.9.x, 3.10.x  | 3.2.x      | >=3.4.0               |                                            | April 2024                               |
-    | 3.8.x, 3.9.x, 3.10.x         | 4.0.x      | >=3.4.0               | 3.10.0                                     | April 1, 2023                            |
-    | 3.8.x, 3.9.x, 3.10.x         | 4.1.x      | >=3.4.0               |                                            | December 2023                            |
-    | 3.8.x, 3.9.x, 3.10.x, 3.11.x | 4.2.x      | >=3.4.0               |                                            | April 2026                               |
-
-- Release logs are available [here](https://github.com/grafana/django-saml2-auth/releases).
-
-- For contribution, read [contributing guide](CONTRIBUTING.md).
-
-## CycloneDX SBOM
-
-From [v3.6.1](https://github.com/grafana/django-saml2-auth/releases/tag/v3.6.1), CycloneDX SBOMs will be generated for [requirements.txt](./requirements.txt) and [requirements_test.txt](./requirements_test.txt) and it can be accessed from the latest build of GitHub Actions for a tagged release, for example, [this one](https://github.com/grafana/django-saml2-auth/actions/runs/2245422253). The artifacts are only kept for 90 days.
-
-## Donate
-
-Please give us a shiny ![star](https://img.shields.io/github/stars/grafana/django-saml2-auth.svg?style=social&label=Star&maxAge=86400) and help spread the word.
 
 ## Installation
 
 You can install this plugin via `pip`. Make sure you update `pip` to be able to install from git:
 
 ```bash
-pip install grafana-django-saml2-auth
-```
-
-or from source:
-
-```bash
-git clone https://github.com/grafana/django-saml2-auth
-cd django-saml2-auth
-python setup.py install
+pip install django-saml2-auth-multi
 ```
 
 `xmlsec` is also required by `pysaml2`, so it must be installed:
@@ -70,7 +40,7 @@ python setup.py install
 1. Once you have the library installed or in your `requirements.txt`, import the views module in your root `urls.py`:
 
     ```python
-    import django_saml2_auth.views
+    import django_saml2_auth_multi.views
     ```
 
 2. Override the default login page in the root `urls.py` file, by adding these lines **BEFORE** any `urlpatterns`:
@@ -78,128 +48,108 @@ python setup.py install
     ```python
     # These are the SAML2 related URLs. You can change "^saml2_auth/" regex to
     # any path you want, like "^sso/", "^sso_auth/", "^sso_login/", etc. (required)
-    url(r'^sso/', include('django_saml2_auth.urls')),
+    url(r'^sso/', include('django_saml2_auth_multi.urls')),
 
     # The following line will replace the default user login with SAML2 (optional)
     # If you want to specific the after-login-redirect-URL, use parameter "?next=/the/path/you/want"
     # with this view.
-    url(r'^accounts/login/$', django_saml2_auth.views.signin),
+    url(r'^accounts/login/$', django_saml2_auth_multi.views.signin),
 
     # The following line will replace the admin login with SAML2 (optional)
     # If you want to specific the after-login-redirect-URL, use parameter "?next=/the/path/you/want"
     # with this view.
-    url(r'^admin/login/$', django_saml2_auth.views.signin),
+    url(r'^admin/login/$', django_saml2_auth_multi.views.signin),
     ```
 
-3. Add `'django_saml2_auth'` to `INSTALLED_APPS` in your django `settings.py`:
+3. Add `'django_saml2_auth_multi'` to `INSTALLED_APPS` in your django `settings.py`:
 
     ```python
     INSTALLED_APPS = [
         '...',
-        'django_saml2_auth',
+        'django_saml2_auth_multi',
     ]
     ```
 
 4. In `settings.py`, add the SAML2 related configuration:
 
+    `SAML2_AUTH` configuration variable can be a dictionary (for configuring single IDP) or a list (for configuring list of IDPs).
+
     Please note, the only required setting is **METADATA\_AUTO\_CONF\_URL** or the existence of a **GET\_METADATA\_AUTO\_CONF\_URLS** trigger function. The following block shows all required and optional configuration settings and their default values.
 
     ```python
-    SAML2_AUTH = {
-        # Metadata is required, choose either remote url or local file path
-        'METADATA_AUTO_CONF_URL': '[The auto(dynamic) metadata configuration URL of SAML2]',
-        'METADATA_LOCAL_FILE_PATH': '[The metadata configuration file path]',
-        'KEY_FILE': '[The key file path]',
-        'CERT_FILE': '[The certificate file path]',
+    SAML2_AUTH = [
+        {
+            # Set this to entity ID of IdP. Used when selecting redirection URL in login view and determining issuer IdP in ACS endpoint.
+            # Should be same with Issuer ID in assertions.
+            # Required when a list is provided for SAML2_AUTH (i.e. multiple IDPs are configured). 
+            'IDP_ID': '<Entity ID of IdP>',
 
-        'DEBUG': False,  # Send debug information to a log file
-        # Optional logging configuration.
-        # By default, it won't log anything.
-        # The following configuration is an example of how to configure the logger,
-        # which can be used together with the DEBUG option above. Please note that
-        # the logger configuration follows the Python's logging configuration schema:
-        # https://docs.python.org/3/library/logging.config.html#logging-config-dictschema
-        'LOGGING': {
-            'version': 1,
-            'formatters': {
-                'simple': {
-                    'format': '[%(asctime)s] [%(levelname)s] [%(name)s.%(funcName)s] %(message)s',
-                },
-            },
-            'handlers': {
-                'stdout': {
-                    'class': 'logging.StreamHandler',
-                    'stream': 'ext://sys.stdout',
-                    'level': 'DEBUG',
-                    'formatter': 'simple',
-                },
-            },
-            'loggers': {
-                'saml2': {
-                    'level': 'DEBUG'
-                },
-            },
-            'root': {
-                'level': 'DEBUG',
-                'handlers': [
-                    'stdout',
-                ],
-            },
-        },
+            # Metadata is required, choose either remote url or local file path
+            'METADATA_AUTO_CONF_URL': '[The auto(dynamic) metadata configuration URL of SAML2]',
+            'METADATA_LOCAL_FILE_PATH': '[The metadata configuration file path]',
+            'KEY_FILE': '[The key file path]',
+            'CERT_FILE': '[The certificate file path]',
 
-        # Optional settings below
-        'DEFAULT_NEXT_URL': '/admin',  # Custom target redirect URL after the user get logged in. Default to /admin if not set. This setting will be overwritten if you have parameter ?next= specificed in the login URL.
-        'CREATE_USER': True,  # Create a new Django user when a new user logs in. Defaults to True.
-        'NEW_USER_PROFILE': {
-            'USER_GROUPS': [],  # The default group name when a new user logs in
-            'ACTIVE_STATUS': True,  # The default active status for new users
-            'STAFF_STATUS': False,  # The staff status for new users
-            'SUPERUSER_STATUS': False,  # The superuser status for new users
-        },
-        'ATTRIBUTES_MAP': {  # Change Email/UserName/FirstName/LastName to corresponding SAML2 userprofile attributes.
-            'email': 'user.email',
-            'username': 'user.username',
-            'first_name': 'user.first_name',
-            'last_name': 'user.last_name',
-            'token': 'Token',  # Mandatory, can be unrequired if TOKEN_REQUIRED is False
-            'groups': 'Groups',  # Optional
-        },
-        'GROUPS_MAP': {  # Optionally allow mapping SAML2 Groups to Django Groups
-            'SAML Group Name': 'Django Group Name',
-        },
-        'TRIGGER': {
-            # Optional: needs to return a User Model instance or None
-            'GET_USER': 'path.to.your.get.user.hook.method',
-            'CREATE_USER': 'path.to.your.new.user.hook.method',
-            'BEFORE_LOGIN': 'path.to.your.login.hook.method',
-            'AFTER_LOGIN': 'path.to.your.after.login.hook.method',
-            # Optional. This is executed right before METADATA_AUTO_CONF_URL.
-            # For systems with many metadata files registered allows to narrow the search scope.
-            'GET_USER_ID_FROM_SAML_RESPONSE': 'path.to.your.get.user.from.saml.hook.method',
-            # This can override the METADATA_AUTO_CONF_URL to enumerate all existing metadata autoconf URLs
-            'GET_METADATA_AUTO_CONF_URLS': 'path.to.your.get.metadata.conf.hook.method',
-        },
-        'ASSERTION_URL': 'https://mysite.com',  # Custom URL to validate incoming SAML requests against
-        'ENTITY_ID': 'https://mysite.com/saml2_auth/acs/',  # Populates the Issuer element in authn request
-        'NAME_ID_FORMAT': FormatString,  # Sets the Format property of authn NameIDPolicy element, e.g. 'user.email'
-        'USE_JWT': True,  # Set this to True if you are running a Single Page Application (SPA) with Django Rest Framework (DRF), and are using JWT authentication to authorize client users
-        'JWT_ALGORITHM': 'HS256',  # JWT algorithm to sign the message with
-        'JWT_SECRET': 'your.jwt.secret',  # JWT secret to sign the message with
-        'JWT_PRIVATE_KEY': '--- YOUR PRIVATE KEY ---',  # Private key to sign the message with. The algorithm should be set to RSA256 or a more secure alternative.
-        'JWT_PRIVATE_KEY_PASSPHRASE': 'your.passphrase',  # If your private key is encrypted, you might need to provide a passphrase for decryption
-        'JWT_PUBLIC_KEY': '--- YOUR PUBLIC KEY ---',  # Public key to decode the signed JWT token
-        'JWT_EXP': 60,  # JWT expiry time in seconds
-        'FRONTEND_URL': 'https://myfrontendclient.com',  # Redirect URL for the client if you are using JWT auth with DRF. See explanation below
-        'LOGIN_CASE_SENSITIVE': True,  # whether of not to get the user in case_sentive mode
-        'AUTHN_REQUESTS_SIGNED': True, # Require each authentication request to be signed
-        'LOGOUT_REQUESTS_SIGNED': True,  # Require each logout request to be signed
-        'WANT_ASSERTIONS_SIGNED': True,  # Require each assertion to be signed
-        'WANT_RESPONSE_SIGNED': True,  # Require response to be signed
-        'ACCEPTED_TIME_DIFF': None,  # Accepted time difference between your server and the Identity Provider
-        'ALLOWED_REDIRECT_HOSTS': ["https://myfrontendclient.com"], # Allowed hosts to redirect to using the ?next parameter
-        'TOKEN_REQUIRED': True,  # Whether or not to require the token parameter in the SAML assertion
-    }
+            # Optional settings below
+            'DEFAULT_NEXT_URL': '/admin',  # Custom target redirect URL after the user get logged in. Default to /admin if not set. This setting will be overwritten if you have parameter ?next= specificed in the login URL.
+            'CREATE_USER': True,  # Create a new Django user when a new user logs in. Defaults to True.
+            'NEW_USER_PROFILE': {
+                'USER_GROUPS': [],  # The default group name when a new user logs in
+                'ACTIVE_STATUS': True,  # The default active status for new users
+                'STAFF_STATUS': False,  # The staff status for new users
+                'SUPERUSER_STATUS': False,  # The superuser status for new users
+            },
+            'ATTRIBUTES_MAP': {  # Change Email/UserName/FirstName/LastName to corresponding SAML2 userprofile attributes.
+                'email': 'user.email',
+                'username': 'user.username',
+                'first_name': 'user.first_name',
+                'last_name': 'user.last_name',
+                'token': 'Token',  # Mandatory, can be unrequired if TOKEN_REQUIRED is False
+                'groups': 'Groups',  # Optional
+            },
+            'GROUPS_MAP': {  # Optionally allow mapping SAML2 Groups to Django Groups
+                'SAML Group Name': 'Django Group Name',
+            },
+            'TRIGGER': {
+                # Optional: needs to return a User Model instance or None
+                'GET_USER': 'path.to.your.get.user.hook.method',
+                'CREATE_USER': 'path.to.your.new.user.hook.method',
+                'BEFORE_LOGIN': 'path.to.your.login.hook.method',
+                'AFTER_LOGIN': 'path.to.your.after.login.hook.method',
+                # Optional. This is executed right before METADATA_AUTO_CONF_URL.
+                # For systems with many metadata files registered allows to narrow the search scope.
+                'GET_USER_ID_FROM_SAML_RESPONSE': 'path.to.your.get.user.from.saml.hook.method',
+                # This can override the METADATA_AUTO_CONF_URL to enumerate all existing metadata autoconf URLs
+                'GET_METADATA_AUTO_CONF_URLS': 'path.to.your.get.metadata.conf.hook.method',
+            },
+            'ASSERTION_URL': 'https://mysite.com',  # Custom URL to validate incoming SAML requests against
+            'ENTITY_ID': 'https://mysite.com/saml2_auth/acs/',  # Populates the Issuer element in authn request
+            'NAME_ID_FORMAT': FormatString,  # Sets the Format property of authn NameIDPolicy element, e.g. 'user.email'
+            'USE_JWT': True,  # Set this to True if you are running a Single Page Application (SPA) with Django Rest Framework (DRF), and are using JWT authentication to authorize client users
+            'JWT_ALGORITHM': 'HS256',  # JWT algorithm to sign the message with
+            'JWT_SECRET': 'your.jwt.secret',  # JWT secret to sign the message with
+            'JWT_PRIVATE_KEY': '--- YOUR PRIVATE KEY ---',  # Private key to sign the message with. The algorithm should be set to RSA256 or a more secure alternative.
+            'JWT_PRIVATE_KEY_PASSPHRASE': 'your.passphrase',  # If your private key is encrypted, you might need to provide a passphrase for decryption
+            'JWT_PUBLIC_KEY': '--- YOUR PUBLIC KEY ---',  # Public key to decode the signed JWT token
+            'JWT_EXP': 60,  # JWT expiry time in seconds
+            'FRONTEND_URL': 'https://myfrontendclient.com',  # Redirect URL for the client if you are using JWT auth with DRF. See explanation below
+            'LOGIN_CASE_SENSITIVE': True,  # whether of not to get the user in case_sentive mode
+            'AUTHN_REQUESTS_SIGNED': True, # Require each authentication request to be signed
+            'LOGOUT_REQUESTS_SIGNED': True,  # Require each logout request to be signed
+            'WANT_ASSERTIONS_SIGNED': True,  # Require each assertion to be signed
+            'WANT_RESPONSE_SIGNED': True,  # Require response to be signed
+            'ACCEPTED_TIME_DIFF': None,  # Accepted time difference between your server and the Identity Provider
+            'ALLOWED_REDIRECT_HOSTS': ["https://myfrontendclient.com"], # Allowed hosts to redirect to using the ?next parameter
+            'TOKEN_REQUIRED': True,  # Whether or not to require the token parameter in the SAML assertion
+        }
+    ]
     ```
+
+    `SAML2_AUTH_DEFAULTS` configuration variable can be used for specifying common settings for all IdP configurations. Same list of settings can be used for `SAML2_AUTH_DEFAULTS`.
+
+    `SAML2_AUTH_DEBUG` (default: `False`) configuration variable toggles debug flag for logging.
+
+
 
 5. In your SAML2 SSO identity provider, set the Single-sign-on URL and Audience URI (SP Entity ID) to <http://your-domain/saml2_auth/acs/>
 
@@ -217,7 +167,8 @@ Some of the following settings are related to how this module operates. The rest
 
 | **Field name**                              | **Description**                                                                                                                                                                                                                                                                                                                                                                                                                                             | **Data type(s)** | **Default value(s)**                                                                                                                     | **Example**                                              |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| **METADATA\_AUTO\_CONF\_URL**               | Auto SAML2 metadata configuration URL                                                                                                                                                                                                                                                                                                                                                                                                                       | `str`            | `None`                                                                                                                                   | `https://ORG.okta.com/app/APP-ID/sso/saml/metadata`      |
+| **IDP\_ID**               | Entity ID of IdP which is also used as Issuer information in assertions                                                                                                                                                                                                                                                                                                                                                                                                                       | `str`            | `None`                                                                                                                                   | `urn:ORG.eu.auth0.com`      |
+| **METADATA\_AUTO\_CONF\_URL**               | Auto SAML2 metadata configuration URL                                                                                                                                                                                                                                                                                                                                                                                                                       | `str`            | `None`                                                                                                                                   | `https://ORG.eu.auth0.com/samlp/metadata/`      |
 | **METADATA\_LOCAL\_FILE\_PATH**             | SAML2 metadata configuration file path                                                                                                                                                                                                                                                                                                                                                                                                                      | `str`            | `None`                                                                                                                                   | `/path/to/the/metadata.xml`                              |
 | **KEY_FILE**                                | SAML2 private key file path                                                                                                                                                                                                                                                                                                                                                                                                                                 | `str`            | `None`                                                                                                                                   | `/path/to/the/key.pem`                                   |
 | **CERT_FILE**                               | SAML2 public certificate file path                                                                                                                                                                                                                                                                                                                                                                                                                          | `str`            | `None`                                                                                                                                   | `/path/to/the/cert.pem`                                  |
@@ -342,32 +293,12 @@ To enable a logout page, add the following lines to `urls.py`, before any `urlpa
 
 ```python
 # The following line will replace the default user logout with the signout page (optional)
-url(r'^accounts/logout/$', django_saml2_auth.views.signout),
+url(r'^accounts/logout/$', django_saml2_auth_multi.views.signout),
 
 # The following line will replace the default admin user logout with the signout page (optional)
-url(r'^admin/logout/$', django_saml2_auth.views.signout),
+url(r'^admin/logout/$', django_saml2_auth_multi.views.signout),
 ```
 
 To override the built in signout page put a template named 'django\_saml2\_auth/signout.html' in your project's template folder.
 
 If your SAML2 identity provider uses user attribute names other than the defaults listed in the `settings.py` `ATTRIBUTES_MAP`, update them in `settings.py`.
-
-## For Okta Users
-
-I created this plugin originally for Okta. The `METADATA_AUTO_CONF_URL` needed in `settings.py` can be found in the Okta Web UI by navigating to the SAML2 app's `Sign On` tab. In the `Settings` box, you should see:
-
-    Identity Provider metadata is available if this application supports dynamic configuration.
-
-The `Identity Provider metadata` link is the `METADATA_AUTO_CONF_URL`.
-
-More information can be found in the [Okta Developer Documentation](https://developer.okta.com/docs/guides/saml-application-setup/overview/).
-
-## Release Process
-
-I adopted a reasonably simple release process, which is almost automated, except for two actions that needed to be taken to start a release:
-
-1. Update [setup.py](setup.py) and increase the version number in the `setup` function. Unless something backward-incompatible is introduced, only the minor version is upgraded: 3.8.0 becomes 3.9.0.
-2. Tag the `main` branch with the the `vSEMVER`, e.g. `v3.9.0`, and git-push the tag.
-3. The release and publish to PyPI is handled in the CI/CD using GitHub Actions.
-4. Create a new release with auto-generated (and polished) release notes on the tag.
-5. Download [SBOM artifacts](https://github.com/grafana/django-saml2-auth/actions/runs/3227336576) generated by GitHub Actions for the corresponding run, and add them to the [release files](https://github.com/grafana/django-saml2-auth/releases/tag/v3.9.0).
