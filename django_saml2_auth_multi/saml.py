@@ -141,7 +141,10 @@ def get_metadata(user_id: Optional[str] = None, idp: Optional[str] = None) -> Ma
 def get_idp_from_saml_response(saml_response: str) -> str:
     try:
         parsed_xml = ElementTree.fromstring(saml_response)
-        if issuer_node := parsed_xml.find("{urn:oasis:names:tc:SAML:2.0:assertion}Issuer"):
+        issuer_node = parsed_xml.find("{urn:oasis:names:tc:SAML:2.0:assertion}Issuer")
+        # Element object is considered false if it does not have children
+        # Thus, use explicit None check
+        if issuer_node is not None:
             entity_id = issuer_node.text
             idp_settings = SAML2_SETTINGS.get_idp_settings(entity_id)
             return idp_settings["IDP_ID"]
