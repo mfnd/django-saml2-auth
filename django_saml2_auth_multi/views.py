@@ -111,7 +111,7 @@ def acs(request: HttpRequest):
     if next_url is None and relay_state and not relay_state_is_token:
         next_url = relay_state
     elif next_url is None:
-        next_url = get_default_next_url()
+        next_url = get_default_next_url(idp)
 
     if relay_state and relay_state_is_token:
         redirected_user_id = decode_custom_or_default_jwt(relay_state, saml2_auth_settings)

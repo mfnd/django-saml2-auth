@@ -51,6 +51,7 @@ def get_assertion_url(request: HttpRequest, idp=None) -> str:
     return f"{protocol}://{host}"
 
 
+# TODO: Refactor idp parameter in all places
 def get_default_next_url(idp=None) -> Optional[str]:
     """Get default next url for redirection, which is either the DEFAULT_NEXT_URL from settings or
     admin index.
