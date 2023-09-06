@@ -256,6 +256,16 @@ def get_saml_client(domain: str,
     if cert_file:
         saml_settings['cert_file'] = cert_file
 
+    enc_key_file = saml2_auth_settings.get("ENC_KEY_FILE")
+    enc_cert_file = saml2_auth_settings.get("ENC_CERT_FILE")
+    if enc_key_file or enc_cert_file:
+        saml_settings['encryption_keypairs'] = [
+            {
+                'key_file': enc_key_file,
+                'cert_file': enc_cert_file,
+            },
+        ]
+
     try:
         sp_config = Saml2Config()
         sp_config.load(saml_settings)
