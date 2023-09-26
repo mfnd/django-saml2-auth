@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 
 from django.conf import settings
@@ -8,6 +9,7 @@ class SAMLSettings:
 
     def __init__(self):
         self.debug = False
+        self.logger = None
         self.defaults = {}
         self._idp_settings = {}
         self.load()
@@ -20,6 +22,7 @@ class SAMLSettings:
         saml2_settings = settings.SAML2_AUTH
 
         self.debug = getattr(settings, "SAML2_AUTH_DEBUG", False)
+        self.logger = getattr(settings, "SAML2_AUTH_LOGGER", None)
         self.defaults = getattr(settings, "SAML2_AUTH_DEFAULTS", {})
         self._idp_settings = self.load_idp_settings(saml2_settings, self.defaults)
 
@@ -49,6 +52,9 @@ class SAMLSettings:
 
     def default(self):
         return self._idp_settings["__default__"]
+
+    def get_logger(self, name: str | None = None):
+        return self.logger or logging.getLogger(name)
 
 
 SAML2_SETTINGS = SAMLSettings()

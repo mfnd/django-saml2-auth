@@ -304,6 +304,10 @@ def decode_saml_response(
             object for extracting user identity from.
     """
     response = request.POST.get("SAMLResponse") or None
+
+    if logger := SAML2_SETTINGS.get_logger(__name__):
+        logger.debug(f"SAMLResponse: {''.join(response.splitlines())}")
+
     if not response:
         raise SAMLAuthError("There was no response from SAML client.", extra={
             "exc_type": ValueError,

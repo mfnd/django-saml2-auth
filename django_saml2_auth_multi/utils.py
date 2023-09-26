@@ -153,7 +153,7 @@ def exception_handler(
         Returns:
             HttpResponse: Rendered error page with details
         """
-        logger = logging.getLogger(__name__)
+        logger = SAML2_SETTINGS.get_logger(__name__)
         if SAML2_SETTINGS.debug:
             # Log the exception with traceback
             traceback.print_exc()
