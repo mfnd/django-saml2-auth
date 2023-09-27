@@ -59,7 +59,7 @@ def create_new_user(email: str,
         kwargs['last_name'] = last_name
 
     try:
-        user = user_model.objects.create_user(email, **kwargs)
+        user = user_model.objects.create_user(email, email=email, **kwargs)
         user.is_active = is_active
         user.is_staff = is_staff
         user.is_superuser = is_superuser
