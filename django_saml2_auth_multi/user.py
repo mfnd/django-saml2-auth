@@ -9,6 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from dictor import dictor  # type: ignore
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, User
+from django.http import HttpRequest
 
 from django_saml2_auth_multi.config import SAML2_SETTINGS
 from django_saml2_auth_multi.errors import (CANNOT_DECODE_JWT_TOKEN,
@@ -353,12 +354,14 @@ def create_jwt_token(user_id: str, settings: Optional[dict] = None) -> Optional[
     return jwt.encode(payload, secret, algorithm=jwt_algorithm)
 
 
-def create_custom_or_default_jwt(user: Union[str, User], settings: Optional[dict] = None):
+def create_custom_or_default_jwt(user: Union[str, User], request: HttpRequest = None, settings: Optional[dict] = None):
     """Create a new JWT token, eventually using custom trigger
 
     Args:
         user (Union[str, User]): User instance or User's username or email
             based on User.USERNAME_FIELD
+        request: Django HTTP request
+        settings: SAML settings
 
     Raises:
         SAMLAuthError: Cannot create JWT token. Specify a user.
@@ -386,7 +389,7 @@ def create_custom_or_default_jwt(user: Union[str, User], settings: Optional[dict
                 user_model.USERNAME_FIELD: user_id
             }
             target_user = get_user(_user, saml2_auth_settings)
-        jwt_token = run_hook(custom_create_jwt_trigger, target_user)  # type: ignore
+        jwt_token = run_hook(custom_create_jwt_trigger, target_user, request)  # type: ignore
     else:
         # If user_id is not set, retrieve it from user instance
         if not user_id:

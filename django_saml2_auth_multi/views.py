@@ -136,7 +136,7 @@ def acs(request: HttpRequest):
     use_jwt = dictor(saml2_auth_settings, "USE_JWT", False)
     if use_jwt and target_user.is_active:
         # Create a new JWT token for IdP-initiated login (acs)
-        jwt_token = create_custom_or_default_jwt(target_user, saml2_auth_settings)
+        jwt_token = create_custom_or_default_jwt(target_user, request, saml2_auth_settings)
         custom_token_query_trigger = dictor(saml2_auth_settings, "TRIGGER.CUSTOM_TOKEN_QUERY")
         if custom_token_query_trigger:
             query = run_hook(custom_token_query_trigger, jwt_token)
@@ -214,7 +214,7 @@ def sp_initiated_login(request: HttpRequest, idp: Optional[str] = None) -> HttpR
                     "status_code": 403
                 })
             saml_client = get_saml_client(get_assertion_url(request, idp), acs, idp, user_id)
-            jwt_token = create_custom_or_default_jwt(user_id)  # TODO: NoSettings
+            jwt_token = create_custom_or_default_jwt(user_id, request)  # TODO: NoSettings
             _, info = saml_client.prepare_for_authenticate(  # type: ignore
                 sign=False, relay_state=jwt_token)
             redirect_url = dict(info["headers"]).get("Location", "")
