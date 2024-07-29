@@ -134,7 +134,8 @@ def acs(request: HttpRequest):
     request.session.flush()
 
     use_jwt = dictor(saml2_auth_settings, "USE_JWT", False)
-    if use_jwt and target_user.is_active:
+    admin_url = dictor(saml2_auth_settings, "ADMIN_URL", "")
+    if use_jwt and target_user.is_active and next_url != admin_url:
         # Create a new JWT token for IdP-initiated login (acs)
         jwt_token = create_custom_or_default_jwt(target_user, request, saml2_auth_settings)
         custom_token_query_trigger = dictor(saml2_auth_settings, "TRIGGER.CUSTOM_TOKEN_QUERY")
